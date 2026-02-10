@@ -52,8 +52,17 @@ void read_file() {
 
     FILE *file = fopen(filename, "r");
 
+	if (!file) {
+		fprintf(stderr, "Error opening file\n");
+		exit(1);
+	}
+
     for (int i = 0; i < n; i++) {
-        fread(&particles[i], sizeof(struct Particle), 1, file);
+        size_t bytes_read = fread(&particles[i], sizeof(struct Particle), 1, file);
+		if (!bytes_read) {
+			fprintf(stderr, "Error reading file\n");
+			exit(1);
+		}
         if (particles[i].mass > largest_particle) {
             largest_particle = particles[i].mass;
         }
@@ -61,11 +70,17 @@ void read_file() {
             brightest = particles[i].brightness;
         }
     }
+	fclose(file);
 }
 
 void write_file() {
     FILE *file = fopen("results.gal", "w");
+	if (!file) {
+		fprintf(stderr, "Error opening file\n");
+		exit(1);
+	}
     fwrite(particles, sizeof(struct Particle), n, file);
+	fclose(file);
 }
 
 const double frame_rate = 1.0 / 60.0;
@@ -113,8 +128,8 @@ void step() {
 
             double force_multiplier = G / pow(distance + epsilon, 3);
 
-            float force_x = force_multiplier * dx;
-            float force_y = force_multiplier * dy;
+            double force_x = force_multiplier * dx;
+            double force_y = force_multiplier * dy;
 
             double accel_i_x = -force_x * mass_j;
             double accel_i_y = -force_y * mass_j;
@@ -153,12 +168,20 @@ int main(int argc, char **argv) {
     read_file();
 
     if (graphics) {
-        InitializeGraphics(argv[0], 1600, 1600);
+        InitializeGraphics(argv[0], 800, 800);
     }
 
     for (int i = 0; i < nsteps; i++) {
         step();
     }
 
+	if (graphics) {
+		FlushDisplay();
+		CloseDisplay();
+	}
+
     write_file();
+
+	free(particles);
+	free(temp_particles);
 }
