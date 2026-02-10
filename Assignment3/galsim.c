@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "graphics/graphics.h"
@@ -37,7 +38,7 @@ double brightest = 0;
 
 const double epsilon = 0.001;
 
-void readArguments(char *argv[]) {
+void read_arguments(char *argv[]) {
     n = atoi(argv[1]);
     filename = argv[2];
     nsteps = atoi(argv[3]);
@@ -45,7 +46,7 @@ void readArguments(char *argv[]) {
     graphics = atoi(argv[5]);
 }
 
-void readFile() {
+void read_file() {
     particles = malloc(sizeof(struct Particle) * n);
     temp_particles = malloc(sizeof(struct ParticleChange) * n);
 
@@ -62,23 +63,23 @@ void readFile() {
     }
 }
 
-void writeFile() {
+void write_file() {
     FILE *file = fopen("results.gal", "w");
-
     fwrite(particles, sizeof(struct Particle), n, file);
 }
 
-const double framerate = 1.0 / 60.0;
-struct timespec lastFrame;
+const double frame_rate = 1.0 / 60.0;
+struct timespec last_frame;
 
-void drawGalaxy() {
+void draw_galaxy() {
     double time_spent;
+    // If the last frame was less than framerate seconds ago, wait to draw it
     do {
-        struct timespec currentTime;
-        clock_gettime(CLOCK_MONOTONIC, &currentTime);
-        time_spent = (currentTime.tv_sec - lastFrame.tv_sec) +
-                     (currentTime.tv_nsec - lastFrame.tv_nsec) / 1000000000.0;
-    } while (time_spent < framerate);
+        struct timespec current_time;
+        clock_gettime(CLOCK_MONOTONIC, &current_time);
+        time_spent = (current_time.tv_sec - last_frame.tv_sec) +
+                     (current_time.tv_nsec - last_frame.tv_nsec) / 1000000000.0;
+    } while (time_spent < frame_rate);
 
     ClearScreen();
     for (int i = 0; i < n; i++) {
@@ -89,19 +90,19 @@ void drawGalaxy() {
         DrawCircle(x * 1, y * 1, 1, 1, r, color);
     }
     Refresh();
-    clock_gettime(CLOCK_MONOTONIC, &lastFrame);
+    clock_gettime(CLOCK_MONOTONIC, &last_frame);
 }
 
 void step() {
+    // Reset the temp_particles
+    memset(temp_particles, 0, sizeof(struct ParticleChange) * n);
+
     const double G = 100.0 / n;
-    for (int i = 0; i < n; i++) {
-        temp_particles[i].x_velocity = 0;
-        temp_particles[i].y_velocity = 0;
-    }
 
     for (int i = 0; i < n; i++) {
         double mass_i = particles[i].mass;
 
+        // Using Newtons third law, we can save about 50% of all iterations
         for (int j = i + 1; j < n; j++) {
             double mass_j = particles[j].mass;
 
@@ -129,6 +130,7 @@ void step() {
         }
     }
 
+    // Update all velocities and positions in one go
     for (int i = 0; i < n; i++) {
         particles[i].x_velocity += temp_particles[i].x_velocity;
         particles[i].y_velocity += temp_particles[i].y_velocity;
@@ -138,7 +140,7 @@ void step() {
     }
 
     if (graphics) {
-        drawGalaxy();
+        draw_galaxy();
     }
 }
 
@@ -147,8 +149,8 @@ int main(int argc, char **argv) {
         printf("Usage: ./galsim N filename nsteps delta_time graphics");
         return 1;
     }
-    readArguments(argv);
-    readFile();
+    read_arguments(argv);
+    read_file();
 
     if (graphics) {
         InitializeGraphics(argv[0], 1600, 1600);
@@ -158,5 +160,5 @@ int main(int argc, char **argv) {
         step();
     }
 
-    writeFile();
+    write_file();
 }
