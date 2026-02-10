@@ -5,8 +5,6 @@
 #include <string.h>
 #include <time.h>
 
-#define NUMCOLORS 512
-
 #define min(a, b) (a) < (b) ? (a) : (b)
 #define max(a, b) (a) > (b) ? (a) : (b)
 
