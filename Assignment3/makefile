@@ -6,3 +6,6 @@ VECTOR_FLAGS = -march=native -ffast-math -ftree-vectorize -fopt-info-vec
 
 galsim: galsim.c graphics/graphics.o
 	$(CC) $(CFLAGS) $(VECTOR_FLAGS) -o $@ $^ $(LDLIBS)
+
+test_performance: galsim
+	time ./galsim 10000 ./input_data/ellipse_N_10000.gal 200 0
