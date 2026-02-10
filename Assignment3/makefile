@@ -1,6 +1,8 @@
 CC = gcc
-CFLAGS = -O0 -Wall -Wextra -pedantic
-LDLIBS = -lm
+CFLAGS = -O3 -Wall -Wextra -pedantic -g
+INCLUDES=-I/opt/X11/include
+LDLIBS=-L/opt/X11/lib -lX11 -lm
+VECTOR_FLAGS = -march=native -ffast-math -ftree-vectorize -fopt-info-vec
 
-galsim: galsim.c
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+galsim: galsim.c graphics/graphics.o
+	$(CC) $(CFLAGS) $(VECTOR_FLAGS) -o $@ $^ $(LDLIBS)

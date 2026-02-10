@@ -2,7 +2,12 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <time.h>
+
+#include "graphics/graphics.h"
+
+#define min(a, b) (a) < (b) ? (a) : (b)
+#define max(a, b) (a) > (b) ? (a) : (b)
 
 struct Particle {
     double x_pos;
@@ -13,14 +18,22 @@ struct Particle {
     double brightness;
 };
 
+struct ParticleChange {
+    double x_velocity;
+    double y_velocity;
+};
+
 struct Particle *particles;
-struct Particle *temp_particles;
+struct ParticleChange *temp_particles;
 
 int n;
 char *filename;
 int nsteps;
 double delta_time;
 bool graphics;
+
+double largest_particle = 0;
+double brightest = 0;
 
 const double epsilon = 0.001;
 
@@ -34,62 +47,100 @@ void readArguments(char *argv[]) {
 
 void readFile() {
     particles = malloc(sizeof(struct Particle) * n);
-    temp_particles = malloc(sizeof(struct Particle) * n);
+    temp_particles = malloc(sizeof(struct ParticleChange) * n);
 
     FILE *file = fopen(filename, "r");
 
     for (int i = 0; i < n; i++) {
         fread(&particles[i], sizeof(struct Particle), 1, file);
+        if (particles[i].mass > largest_particle) {
+            largest_particle = particles[i].mass;
+        }
+        if (particles[i].brightness > brightest) {
+            brightest = particles[i].brightness;
+        }
     }
-    memcpy(temp_particles, particles, sizeof(struct Particle) * n);
 }
 
-void write_file() {
+void writeFile() {
     FILE *file = fopen("results.gal", "w");
 
     fwrite(particles, sizeof(struct Particle), n, file);
 }
 
+const double framerate = 1.0 / 60.0;
+struct timespec lastFrame;
+
+void drawGalaxy() {
+    double time_spent;
+    do {
+        struct timespec currentTime;
+        clock_gettime(CLOCK_MONOTONIC, &currentTime);
+        time_spent = (currentTime.tv_sec - lastFrame.tv_sec) +
+                     (currentTime.tv_nsec - lastFrame.tv_nsec) / 1000000000.0;
+    } while (time_spent < framerate);
+
+    ClearScreen();
+    for (int i = 0; i < n; i++) {
+        double x = particles[i].x_pos;
+        double y = particles[i].y_pos;
+        printf("%lf, %lf\n", x, y);
+        double r = max(0.002, 0.1 / n * particles[i].mass / largest_particle);
+        double color = 1.0 - particles[i].brightness / brightest;
+        DrawCircle(x * 1, y * 1, 1, 1, r, color);
+    }
+    Refresh();
+    clock_gettime(CLOCK_MONOTONIC, &lastFrame);
+}
+
 void step() {
     const double G = 100.0 / n;
     for (int i = 0; i < n; i++) {
-        double force_x = 0, force_y = 0;
-        double mass = particles[i].mass;
+        temp_particles[i].x_velocity = 0;
+        temp_particles[i].y_velocity = 0;
+    }
 
-        for (int j = 0; j < n; j++) {
-            if (j == i) {
-                continue;
-            }
+    for (int i = 0; i < n; i++) {
+        double mass_i = particles[i].mass;
+
+        for (int j = i + 1; j < n; j++) {
+            double mass_j = particles[j].mass;
+
             double dx = particles[i].x_pos - particles[j].x_pos;
             double dy = particles[i].y_pos - particles[j].y_pos;
 
             double distance = sqrt(dx * dx + dy * dy);
 
-            force_x += (particles[j].mass / pow(distance + epsilon, 3)) * dx;
-            force_y += (particles[j].mass / pow(distance + epsilon, 3)) * dy;
+            double force_multiplier = G / pow(distance + epsilon, 3);
+
+            float force_x = force_multiplier * dx;
+            float force_y = force_multiplier * dy;
+
+            double accel_i_x = -force_x * mass_j;
+            double accel_i_y = -force_y * mass_j;
+
+            double accel_j_x = force_x * mass_i;
+            double accel_j_y = force_y * mass_i;
+
+            temp_particles[i].x_velocity += delta_time * accel_i_x;
+            temp_particles[i].y_velocity += delta_time * accel_i_y;
+
+            temp_particles[j].x_velocity += delta_time * accel_j_x;
+            temp_particles[j].y_velocity += delta_time * accel_j_y;
         }
-
-        force_x *= -G * mass;
-        force_y *= -G * mass;
-
-        double accel_x = force_x / mass;
-        double accel_y = force_y / mass;
-
-        double x_velocity = particles[i].x_velocity + delta_time * accel_x;
-        double y_velocity = particles[i].y_velocity + delta_time * accel_y;
-
-        double x_pos = particles[i].x_pos + delta_time * x_velocity;
-        double y_pos = particles[i].y_pos + delta_time * y_velocity;
-
-        temp_particles[i].x_pos = x_pos;
-        temp_particles[i].y_pos = y_pos;
-        temp_particles[i].x_velocity = x_velocity;
-        temp_particles[i].y_velocity = y_velocity;
     }
-    struct Particle *temp;
-    temp = particles;
-    particles = temp_particles;
-    temp_particles = temp;
+
+    for (int i = 0; i < n; i++) {
+        particles[i].x_velocity += temp_particles[i].x_velocity;
+        particles[i].y_velocity += temp_particles[i].y_velocity;
+
+        particles[i].x_pos += particles[i].x_velocity * delta_time;
+        particles[i].y_pos += particles[i].y_velocity * delta_time;
+    }
+
+    if (graphics) {
+        drawGalaxy();
+    }
 }
 
 int main(int argc, char **argv) {
@@ -100,9 +151,13 @@ int main(int argc, char **argv) {
     readArguments(argv);
     readFile();
 
+    if (graphics) {
+        InitializeGraphics(argv[0], 1600, 1600);
+    }
+
     for (int i = 0; i < nsteps; i++) {
         step();
     }
 
-    write_file();
+    writeFile();
 }
