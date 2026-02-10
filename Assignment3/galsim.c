@@ -84,7 +84,6 @@ void drawGalaxy() {
     for (int i = 0; i < n; i++) {
         double x = particles[i].x_pos;
         double y = particles[i].y_pos;
-        printf("%lf, %lf\n", x, y);
         double r = max(0.002, 0.1 / n * particles[i].mass / largest_particle);
         double color = 1.0 - particles[i].brightness / brightest;
         DrawCircle(x * 1, y * 1, 1, 1, r, color);
