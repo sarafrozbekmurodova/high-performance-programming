@@ -119,7 +119,7 @@ GC create_gc(Display *display, Window win) {
     int screen_num = DefaultScreen(display);
 
     GC gc = XCreateGC(display, win, valuemask, &values);
-    if (gc < 0) {
+    if (gc < (GC)0) {
         fprintf(stderr, "XCreateGC: \n");
     }
 
