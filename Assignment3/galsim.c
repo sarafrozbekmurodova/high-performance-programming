@@ -1,11 +1,11 @@
+#include <X11/Xlib.h>
+#include <X11/keysym.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <X11/Xlib.h>
-#include <X11/keysym.h>
 
 #define NUMCOLORS 512
 
@@ -65,17 +65,18 @@ void read_file() {
 
     FILE *file = fopen(filename, "r");
 
-	if (!file) {
-		fprintf(stderr, "Error opening file\n");
-		exit(1);
-	}
+    if (!file) {
+        fprintf(stderr, "Error opening file\n");
+        exit(1);
+    }
 
     for (int i = 0; i < n; i++) {
-        size_t bytes_read = fread(&particles[i], sizeof(struct Particle), 1, file);
-		if (!bytes_read) {
-			fprintf(stderr, "Error reading file\n");
-			exit(1);
-		}
+        size_t bytes_read =
+            fread(&particles[i], sizeof(struct Particle), 1, file);
+        if (!bytes_read) {
+            fprintf(stderr, "Error reading file\n");
+            exit(1);
+        }
         if (particles[i].mass > largest_particle) {
             largest_particle = particles[i].mass;
         }
@@ -83,35 +84,36 @@ void read_file() {
             brightest = particles[i].brightness;
         }
     }
-	fclose(file);
+    fclose(file);
 }
 
 void write_file() {
     FILE *file = fopen("results.gal", "w");
-	if (!file) {
-		fprintf(stderr, "Error opening file\n");
-		exit(1);
-	}
+    if (!file) {
+        fprintf(stderr, "Error opening file\n");
+        exit(1);
+    }
     fwrite(particles, sizeof(struct Particle), n, file);
-	fclose(file);
+    fclose(file);
 }
 
-Window create_simple_window(Display* display, int width, int height, int x, int y) {
+Window create_simple_window(Display *display, int width, int height, int x,
+                            int y) {
     int screen_num = DefaultScreen(display);
     int win_border_width = 2;
 
     Window win = XCreateSimpleWindow(display, RootWindow(display, screen_num),
-                            x, y, width, height, win_border_width,
-                            BlackPixel(display, screen_num),
-                            WhitePixel(display, screen_num));
-    
+                                     x, y, width, height, win_border_width,
+                                     BlackPixel(display, screen_num),
+                                     WhitePixel(display, screen_num));
+
     XMapWindow(display, win);
     XFlush(display);
 
     return win;
 }
 
-GC create_gc(Display* display, Window win) {
+GC create_gc(Display *display, Window win) {
     unsigned long valuemask = 0;
     XGCValues values;
     int screen_num = DefaultScreen(display);
@@ -130,20 +132,21 @@ GC create_gc(Display* display, Window win) {
 }
 
 void SetCAxes(float cmin, float cmax) {
-    caxis[0]=cmin;
-    caxis[1]=cmax;
+    caxis[0] = cmin;
+    caxis[1] = cmax;
 }
 
 void InitializeGraphics(char *command, int windowWidth, int windowHeight) {
     char *display_name = getenv("DISPLAY");
-    Colormap screen_colormap;    
-    
-    width=windowWidth;
-    height=windowHeight;
+    Colormap screen_colormap;
+
+    width = windowWidth;
+    height = windowHeight;
 
     global_display_ptr = XOpenDisplay(display_name);
     if (global_display_ptr == NULL) {
-        fprintf(stderr, "%s: cannot connect to X server '%s'\n", command, display_name);
+        fprintf(stderr, "%s: cannot connect to X server '%s'\n", command,
+                display_name);
         exit(1);
     }
 
@@ -151,25 +154,27 @@ void InitializeGraphics(char *command, int windowWidth, int windowHeight) {
     int screen_num = XScreenNumberOfScreen(screen);
 
     win = create_simple_window(global_display_ptr, width, height, 0, 0);
-    pixmap = XCreatePixmap(global_display_ptr, win, width, height, DefaultDepthOfScreen(screen));
+    pixmap = XCreatePixmap(global_display_ptr, win, width, height,
+                           DefaultDepthOfScreen(screen));
 
     gc = create_gc(global_display_ptr, win);
     XSync(global_display_ptr, False);
 
-    screen_colormap = DefaultColormap(global_display_ptr, DefaultScreen(global_display_ptr));
+    screen_colormap =
+        DefaultColormap(global_display_ptr, DefaultScreen(global_display_ptr));
 
-    black = BlackPixel(global_display_ptr,screen_num);
-    white = WhitePixel(global_display_ptr,screen_num);
-    
+    black = BlackPixel(global_display_ptr, screen_num);
+    white = WhitePixel(global_display_ptr, screen_num);
+
     XColor color;
-    for(int i=0;i<NUMCOLORS;i++) {
-        color.red=((double)(NUMCOLORS-i)/(double)NUMCOLORS)*0xFFFF;
-        color.blue=color.red;
-        color.green=color.red;
-        XAllocColor(global_display_ptr, screen_colormap,&color);    
-        colors[i]=color.pixel;
+    for (int i = 0; i < NUMCOLORS; i++) {
+        color.red = ((double)(NUMCOLORS - i) / (double)NUMCOLORS) * 0xFFFF;
+        color.blue = color.red;
+        color.green = color.red;
+        XAllocColor(global_display_ptr, screen_colormap, &color);
+        colors[i] = color.pixel;
     }
-    SetCAxes(0,1);
+    SetCAxes(0, 1);
 }
 
 void Refresh(void) {
@@ -183,25 +188,24 @@ void ClearScreen(void) {
 }
 
 void DrawCircle(float x, float y, float W, float H, float radius, float color) {
-    int i=(int)((x-radius)/W*width);
-    int j=height-(int)((y+radius)/H*height);
-    int arcrad=2*(int)(radius/W*width);
+    int i = (int)((x - radius) / W * width);
+    int j = height - (int)((y + radius) / H * height);
+    int arcrad = 2 * (int)(radius / W * width);
     int icolor;
 
-    if(color>=caxis[1])
-        icolor=NUMCOLORS-1;
-    else if(color<caxis[0])
-        icolor=0;
+    if (color >= caxis[1])
+        icolor = NUMCOLORS - 1;
+    else if (color < caxis[0])
+        icolor = 0;
     else
-        icolor=(int)((color-caxis[0])/(caxis[1]-caxis[0])*(float)NUMCOLORS);
+        icolor = (int)((color - caxis[0]) / (caxis[1] - caxis[0]) *
+                       (float)NUMCOLORS);
 
     XSetForeground(global_display_ptr, gc, colors[icolor]);
-    XFillArc(global_display_ptr, pixmap, gc, i, j, arcrad, arcrad, 0, 64*360);
+    XFillArc(global_display_ptr, pixmap, gc, i, j, arcrad, arcrad, 0, 64 * 360);
 }
 
-void FlushDisplay() {
-    XFlush(global_display_ptr);
-}
+void FlushDisplay() { XFlush(global_display_ptr); }
 
 void CloseDisplay() {
     XFreeGC(global_display_ptr, gc);
@@ -300,13 +304,13 @@ int main(int argc, char **argv) {
         step();
     }
 
-	if (graphics) {
-		FlushDisplay();
-		CloseDisplay();
-	}
+    if (graphics) {
+        FlushDisplay();
+        CloseDisplay();
+    }
 
     write_file();
 
-	free(particles);
-	free(temp_particles);
+    free(particles);
+    free(temp_particles);
 }
