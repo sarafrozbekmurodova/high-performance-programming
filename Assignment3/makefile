@@ -9,3 +9,6 @@ galsim: galsim.c
 
 test_performance: galsim
 	time ./galsim 10000 ./input_data/ellipse_N_10000.gal 200 0
+
+clean:
+	rm -f galsim results.gal
