@@ -4,7 +4,7 @@ INCLUDES=-I/opt/X11/include
 LDLIBS=-L/opt/X11/lib -lX11 -lm
 VECTOR_FLAGS = -march=native -ffast-math -ftree-vectorize -fopt-info-vec
 
-galsim: galsim.c graphics/graphics.o
+galsim: galsim.c
 	$(CC) $(CFLAGS) $(VECTOR_FLAGS) -o $@ $^ $(LDLIBS)
 
 test_performance: galsim
