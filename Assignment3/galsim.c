@@ -300,9 +300,19 @@ int main(int argc, char **argv) {
         InitializeGraphics(argv[0], 800, 800);
     }
 
+    struct timespec start_time;
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+    double start = start_time.tv_sec + start_time.tv_nsec / 1000000000.0;
+
     for (int i = 0; i < nsteps; i++) {
         step();
     }
+
+    struct timespec end_time;
+    clock_gettime(CLOCK_MONOTONIC, &end_time);
+    double end = end_time.tv_sec + end_time.tv_nsec / 1000000000.0;
+
+    printf("wall seconds: %.15lf \n", end - start);
 
     if (graphics) {
         FlushDisplay();
