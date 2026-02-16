@@ -88,7 +88,7 @@ void read_file() {
 }
 
 void write_file() {
-    FILE *file = fopen("results.gal", "w");
+    FILE *file = fopen("result.gal", "w");
     if (!file) {
         fprintf(stderr, "Error opening file\n");
         exit(1);
