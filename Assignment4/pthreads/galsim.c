@@ -41,7 +41,7 @@ char *filename;
 int nsteps;
 double delta_time;
 bool graphics;
-int num_threads;
+int nthreads;
 
 double largest_particle = 0;
 double brightest = 0;
@@ -54,7 +54,7 @@ void read_arguments(char *argv[]) {
     nsteps = atoi(argv[3]);
     delta_time = atof(argv[4]);
     graphics = atoi(argv[5]);
-    num_threads = atoi(argv[6]);
+    nthreads = atoi(argv[6]);
 }
 
 void read_bytes(double *var, FILE *file) {
@@ -257,8 +257,8 @@ void draw_galaxy() {
 }
 
 typedef struct {
-    int i;
-    int j;
+    int *i;
+    int *j;
 } IJ;
 
 typedef struct {
@@ -276,8 +276,8 @@ void *calculate_accel(void *args) {
     int start = ((Arguments *)args)->start;
     int end = ((Arguments *)args)->end;
 
-    double *accel_x = ((Arguments *)args)->accel_x;
-    double *accel_y = ((Arguments *)args)->accel_y;
+    double *restrict accel_x = ((Arguments *)args)->accel_x;
+    double *restrict accel_y = ((Arguments *)args)->accel_y;
     pthread_mutex_t *lock = ((Arguments *)args)->lock;
     pthread_barrier_t *barrier = ((Arguments *)args)->barrier;
     IJ *work = ((Arguments *)args)->work;
@@ -294,13 +294,17 @@ void *calculate_accel(void *args) {
         }
 
         for (int index = start; index < end;) {
-            int i = work[index].i;
+            int i = work->i[index];
             double accel_x_i = 0;
             double accel_y_i = 0;
+
+            int end_j = 0;
+            for (int j = index; work->i[j] == i && j < end; j++) {
+                end_j = work->j[j];
+            }
+
             // Using Newtons third law, we can save about 50% of all iterations
-            for (int index2 = index; work[index2].i == i && index2 < end;
-                 index2++) {
-                int j = work[index2].j;
+            for (int j = work->j[index]; j <= end_j; j++) {
                 double dx = particles->x_pos[i] - particles->x_pos[j];
                 double dy = particles->y_pos[i] - particles->y_pos[j];
 
@@ -374,13 +378,15 @@ int main(int argc, char **argv) {
     clock_gettime(CLOCK_MONOTONIC, &start_time);
     double start = start_time.tv_sec + start_time.tv_nsec / 1000000000.0;
 
-    IJ *work = malloc(sizeof(IJ) * n * n / 2);
+    IJ work;
+    work.i = malloc(sizeof(int) * n * n / 2);
+    work.j = malloc(sizeof(int) * n * n / 2);
     int work_index = 0;
 
     for (int i = 0; i < n; i++) {
         for (int j = i + 1; j < n; j++) {
-            work[work_index].i = i;
-            work[work_index].j = j;
+            work.i[work_index] = i;
+            work.j[work_index] = j;
             work_index++;
         }
     }
@@ -388,25 +394,30 @@ int main(int argc, char **argv) {
     double *accel_x = calloc(n, sizeof(double));
     double *accel_y = calloc(n, sizeof(double));
 
-    pthread_t threads[num_threads];
+    for (int i = 0; i < n; i++) {
+        accel_x[i] = 0;
+        accel_y[i] = 0;
+    }
+
+    pthread_t threads[nthreads];
 
     pthread_mutex_t lock;
     pthread_mutex_init(&lock, NULL);
     pthread_barrier_t barrier;
-    pthread_barrier_init(&barrier, NULL, num_threads + 1);
+    pthread_barrier_init(&barrier, NULL, nthreads + 1);
 
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < nthreads; i++) {
         Arguments *args = malloc(sizeof(Arguments));
-        args->start = i * (work_index / num_threads);
-        args->end = args->start + (work_index / num_threads);
-        if (args->start == (work_index / num_threads) * (num_threads - 1)) {
-            args->end += work_index % num_threads;
+        args->start = i * (work_index / nthreads);
+        args->end = args->start + (work_index / nthreads);
+        if (args->start == (work_index / nthreads) * (nthreads - 1)) {
+            args->end += work_index % nthreads;
         }
         args->accel_x = accel_x;
         args->accel_y = accel_y;
         args->lock = &lock;
         args->barrier = &barrier;
-        args->work = work;
+        args->work = &work;
 
         pthread_create(&threads[i], NULL, calculate_accel, args);
     }

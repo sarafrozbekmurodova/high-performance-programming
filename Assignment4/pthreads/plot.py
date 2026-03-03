@@ -12,7 +12,8 @@ for i in x:
         f"input_data/ellipse_N_{i:05}.gal",
         str(100),
         str(0.00001),
-        str(0)
+        str(0),
+        str(10),
     ], capture_output=True).stdout.decode().strip().split(': ')[1].strip()
     y1.append(float(child_output))
 
