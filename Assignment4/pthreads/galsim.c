@@ -267,6 +267,7 @@ typedef struct {
     double *accel_x;
     double *accel_y;
     pthread_mutex_t *lock;
+    pthread_barrier_t *barrier;
 
     IJ *work;
 } Arguments;
@@ -278,98 +279,69 @@ void *calculate_accel(void *args) {
     double *accel_x = ((Arguments *)args)->accel_x;
     double *accel_y = ((Arguments *)args)->accel_y;
     pthread_mutex_t *lock = ((Arguments *)args)->lock;
+    pthread_barrier_t *barrier = ((Arguments *)args)->barrier;
     IJ *work = ((Arguments *)args)->work;
 
     const double G = 100.0 / n;
     double temp_accel_x[n];
     double temp_accel_y[n];
 
-    for (int i = 0; i < n; i++) {
-        temp_accel_x[i] = 0;
-        temp_accel_y[i] = 0;
-    }
-
-    for (int index = start; index < end;) {
-        int i = work[index].i;
-        double accel_x_i = 0;
-        double accel_y_i = 0;
-        // Using Newtons third law, we can save about 50% of all iterations
-        for (int index2 = index; work[index2].i == i && index2 < end;
-             index2++) {
-            int j = work[index2].j;
-            double dx = particles->x_pos[i] - particles->x_pos[j];
-            double dy = particles->y_pos[i] - particles->y_pos[j];
-
-            double distance = sqrt(dx * dx + dy * dy);
-
-            double force_multiplier = G / pow(distance + epsilon, 3);
-
-            double force_x = force_multiplier * dx;
-            double force_y = force_multiplier * dy;
-
-            accel_x_i -= force_x * particles->mass[j];
-            accel_y_i -= force_y * particles->mass[j];
-
-            temp_accel_x[j] += force_x * particles->mass[i];
-            temp_accel_y[j] += force_y * particles->mass[i];
-
-            index++;
+    while (true) {
+        pthread_barrier_wait(barrier);
+        for (int i = 0; i < n; i++) {
+            temp_accel_x[i] = 0;
+            temp_accel_y[i] = 0;
         }
-        temp_accel_x[i] += accel_x_i;
-        temp_accel_y[i] += accel_y_i;
-    }
 
-    pthread_mutex_lock(lock);
-    for (int i = 0; i < n; i++) {
-        accel_x[i] += temp_accel_x[i];
-        accel_y[i] += temp_accel_y[i];
+        for (int index = start; index < end;) {
+            int i = work[index].i;
+            double accel_x_i = 0;
+            double accel_y_i = 0;
+            // Using Newtons third law, we can save about 50% of all iterations
+            for (int index2 = index; work[index2].i == i && index2 < end;
+                 index2++) {
+                int j = work[index2].j;
+                double dx = particles->x_pos[i] - particles->x_pos[j];
+                double dy = particles->y_pos[i] - particles->y_pos[j];
+
+                double distance = sqrt(dx * dx + dy * dy);
+
+                double force_multiplier = G / pow(distance + epsilon, 3);
+
+                double force_x = force_multiplier * dx;
+                double force_y = force_multiplier * dy;
+
+                accel_x_i -= force_x * particles->mass[j];
+                accel_y_i -= force_y * particles->mass[j];
+
+                temp_accel_x[j] += force_x * particles->mass[i];
+                temp_accel_y[j] += force_y * particles->mass[i];
+
+                index++;
+            }
+            temp_accel_x[i] += accel_x_i;
+            temp_accel_y[i] += accel_y_i;
+        }
+
+        pthread_mutex_lock(lock);
+        for (int i = 0; i < n; i++) {
+            accel_x[i] += temp_accel_x[i];
+            accel_y[i] += temp_accel_y[i];
+        }
+        pthread_mutex_unlock(lock);
+        pthread_barrier_wait(barrier);
     }
-    pthread_mutex_unlock(lock);
 
     return NULL;
 }
 
-void step() {
-    double *accel_x = calloc(n, sizeof(double));
-    double *accel_y = calloc(n, sizeof(double));
-
-    pthread_t threads[num_threads];
-
-    pthread_mutex_t lock;
-    pthread_mutex_init(&lock, NULL);
-
-    IJ *work = malloc(sizeof(IJ) * n * n / 2);
-    int work_index = 0;
-
+void step(double *accel_x, double *accel_y, pthread_barrier_t *barrier) {
     for (int i = 0; i < n; i++) {
-        for (int j = i + 1; j < n; j++) {
-            work[work_index].i = i;
-            work[work_index].j = j;
-            work_index++;
-        }
+        accel_x[i] = 0;
+        accel_y[i] = 0;
     }
-
-    for (int i = 0; i < num_threads; i++) {
-        void *calculate_accel(void *args);
-        Arguments *args = malloc(sizeof(Arguments));
-        args->start = i * (work_index / num_threads);
-        args->end = args->start + (work_index / num_threads);
-        if (args->start == (work_index / num_threads) * (num_threads - 1)) {
-            args->end += work_index % num_threads;
-        }
-        args->accel_x = accel_x;
-        args->accel_y = accel_y;
-        args->lock = &lock;
-        args->work = work;
-
-        pthread_create(&threads[i], NULL, calculate_accel, args);
-    }
-
-    for (int i = 0; i < num_threads; i++) {
-        pthread_join(threads[i], NULL);
-    }
-
-    free(work);
+    pthread_barrier_wait(barrier);
+    pthread_barrier_wait(barrier);
 
     // Update all velocities and positions in one go
     for (int i = 0; i < n; i++) {
@@ -383,9 +355,6 @@ void step() {
     if (graphics) {
         draw_galaxy();
     }
-
-    free(accel_x);
-    free(accel_y);
 }
 
 int main(int argc, char **argv) {
@@ -405,8 +374,45 @@ int main(int argc, char **argv) {
     clock_gettime(CLOCK_MONOTONIC, &start_time);
     double start = start_time.tv_sec + start_time.tv_nsec / 1000000000.0;
 
+    IJ *work = malloc(sizeof(IJ) * n * n / 2);
+    int work_index = 0;
+
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {
+            work[work_index].i = i;
+            work[work_index].j = j;
+            work_index++;
+        }
+    }
+
+    double *accel_x = calloc(n, sizeof(double));
+    double *accel_y = calloc(n, sizeof(double));
+
+    pthread_t threads[num_threads];
+
+    pthread_mutex_t lock;
+    pthread_mutex_init(&lock, NULL);
+    pthread_barrier_t barrier;
+    pthread_barrier_init(&barrier, NULL, num_threads + 1);
+
+    for (int i = 0; i < num_threads; i++) {
+        Arguments *args = malloc(sizeof(Arguments));
+        args->start = i * (work_index / num_threads);
+        args->end = args->start + (work_index / num_threads);
+        if (args->start == (work_index / num_threads) * (num_threads - 1)) {
+            args->end += work_index % num_threads;
+        }
+        args->accel_x = accel_x;
+        args->accel_y = accel_y;
+        args->lock = &lock;
+        args->barrier = &barrier;
+        args->work = work;
+
+        pthread_create(&threads[i], NULL, calculate_accel, args);
+    }
+
     for (int i = 0; i < nsteps; i++) {
-        step();
+        step(accel_x, accel_y, &barrier);
     }
 
     struct timespec end_time;
@@ -422,5 +428,7 @@ int main(int argc, char **argv) {
 
     write_file();
 
+    free(accel_x);
+    free(accel_y);
     free(particles);
 }
