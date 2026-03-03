@@ -1,18 +1,28 @@
 import matplotlib.pyplot as plt
+import subprocess
 
-x1 = [10, 100, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
-y1 = [0, 0, 0.25, 0.97, 2.27, 3.92,
-      6.02, 8.80, 11.96, 15.45, 19.57, 24.05]
+
+x = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
+y1 = []
+
+for i in x:
+    child_output = subprocess.run([
+        "./galsim",
+        str(i),
+        f"input_data/ellipse_N_{i:05}.gal",
+        str(100),
+        str(0.00001),
+        str(0)
+    ], capture_output=True).stdout.decode().strip().split(': ')[1].strip()
+    y1.append(float(child_output))
 
 LW = 3.0
 
-plt.plot(x1, y1, linewidth=LW, label="Our runtimes")
+plt.plot(x, y1, linewidth=LW, label="Our runtimes")
 
-x2 = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
-y2 = [0.25, 0.25 * 2**2, 0.25 * 3 ** 2, 0.25 * 4 ** 2,
-      0.25 * 5 ** 2, 0.25 * 6 ** 2, 0.25 * 7 ** 2, 0.25 * 8 ** 2, 0.25 * 9 ** 2, 0.25 * 10 ** 2]
+y2 = [y1[0] * (x[i] / x[0])**2 for i in range(len(x))]
 
-plt.plot(x2, y2, linewidth=LW, label="Exactly O(N^2)")
+plt.plot(x, y2, linewidth=LW, label="Exactly O(N^2)")
 
 plt.legend(fontsize="xx-large")
 

@@ -255,12 +255,12 @@ void draw_galaxy() {
 void step() {
     const double G = 100.0 / n;
 
-    double *forces_x = calloc(n, sizeof(double));
-    double *forces_y = calloc(n, sizeof(double));
+    double *accel_x = calloc(n, sizeof(double));
+    double *accel_y = calloc(n, sizeof(double));
 
     for (int i = 0; i < n; i++) {
-        double force_i_x = 0;
-        double force_i_y = 0;
+        double accel_i_x = 0;
+        double accel_i_y = 0;
         // Using Newtons third law, we can save about 50% of all iterations
         for (int j = i + 1; j < n; j++) {
             double dx = particles->x_pos[i] - particles->x_pos[j];
@@ -273,24 +273,21 @@ void step() {
             double force_x = force_multiplier * dx;
             double force_y = force_multiplier * dy;
 
-            force_i_x -= force_x * particles->mass[j];
-            force_i_y -= force_y * particles->mass[j];
+            accel_i_x -= force_x * particles->mass[j];
+            accel_i_y -= force_y * particles->mass[j];
 
-            forces_x[j] += force_x * particles->mass[i];
-            forces_y[j] += force_y * particles->mass[i];
+            accel_x[j] += force_x * particles->mass[i];
+            accel_y[j] += force_y * particles->mass[i];
         }
 
-        forces_x[i] += force_i_x;
-        forces_y[i] += force_i_y;
+        accel_x[i] += accel_i_x;
+        accel_y[i] += accel_i_y;
     }
 
     // Update all velocities and positions in one go
     for (int i = 0; i < n; i++) {
-        double accel_x = forces_x[i];
-        double accel_y = forces_y[i];
-
-        particles->x_velocity[i] += accel_x * delta_time;
-        particles->y_velocity[i] += accel_y * delta_time;
+        particles->x_velocity[i] += accel_x[i] * delta_time;
+        particles->y_velocity[i] += accel_y[i] * delta_time;
 
         particles->x_pos[i] += particles->x_velocity[i] * delta_time;
         particles->y_pos[i] += particles->y_velocity[i] * delta_time;
@@ -300,8 +297,8 @@ void step() {
         draw_galaxy();
     }
 
-    free(forces_x);
-    free(forces_y);
+    free(accel_x);
+    free(accel_y);
 }
 
 int main(int argc, char **argv) {
