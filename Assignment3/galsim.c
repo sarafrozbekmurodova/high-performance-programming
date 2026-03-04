@@ -301,6 +301,16 @@ void step() {
     free(accel_y);
 }
 
+void free_particles() {
+    free(particles->x_pos);
+    free(particles->y_pos);
+    free(particles->mass);
+    free(particles->x_velocity);
+    free(particles->y_velocity);
+    free(particles->brightness);
+    free(particles);
+}
+
 int main(int argc, char **argv) {
     if (argc != 6) {
         printf("Usage: ./galsim N filename nsteps delta_time graphics");
@@ -334,5 +344,5 @@ int main(int argc, char **argv) {
 
     write_file();
 
-    free(particles);
+    free_particles();
 }
