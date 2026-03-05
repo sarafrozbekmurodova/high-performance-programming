@@ -3,7 +3,7 @@ import subprocess
 
 
 particles = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
-threads = [i for i in range(16)]
+threads = [i + 1 for i in range(16)]
 y = []
 initial = float(subprocess.run([
     "./galsim",

@@ -2,7 +2,6 @@
 #include <X11/keysym.h>
 #include <math.h>
 #include <pthread.h>
-#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -286,7 +285,7 @@ void *calculate_accel(void *args) {
     double temp_accel_x[n];
     double temp_accel_y[n];
 
-    while (true) {
+    for (int step = 0; step<nsteps; step++) {
         pthread_barrier_wait(barrier);
         for (int i = 0; i < n; i++) {
             temp_accel_x[i] = 0;
@@ -310,7 +309,7 @@ void *calculate_accel(void *args) {
 
                 double distance = sqrt(dx * dx + dy * dy);
 
-                double force_multiplier = G / pow(distance + epsilon, 3);
+                double force_multiplier = G / (distance + epsilon) * (distance + epsilon) * (distance + epsilon);
 
                 double force_x = force_multiplier * dx;
                 double force_y = force_multiplier * dy;
@@ -335,7 +334,7 @@ void *calculate_accel(void *args) {
         pthread_mutex_unlock(lock);
         pthread_barrier_wait(barrier);
     }
-
+    free(args);
     return NULL;
 }
 
@@ -359,6 +358,16 @@ void step(double *accel_x, double *accel_y, pthread_barrier_t *barrier) {
     if (graphics) {
         draw_galaxy();
     }
+}
+
+void free_particles() {
+    free(particles->x_pos);
+    free(particles->y_pos);
+    free(particles->mass);
+    free(particles->x_velocity);
+    free(particles->y_velocity);
+    free(particles->brightness);
+    free(particles);
 }
 
 int main(int argc, char **argv) {
@@ -426,6 +435,11 @@ int main(int argc, char **argv) {
         step(accel_x, accel_y, &barrier);
     }
 
+    for (int i = 0; i < nthreads; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
     struct timespec end_time;
     clock_gettime(CLOCK_MONOTONIC, &end_time);
     double end = end_time.tv_sec + end_time.tv_nsec / 1000000000.0;
@@ -441,5 +455,7 @@ int main(int argc, char **argv) {
 
     free(accel_x);
     free(accel_y);
-    free(particles);
+    free(work.i);
+    free(work.j);
+    free_particles();
 }
