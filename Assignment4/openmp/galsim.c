@@ -273,7 +273,7 @@ void step() {
 
             double distance = sqrt(dx * dx + dy * dy);
 
-            double force_multiplier = G / (distance + epsilon) * (distance + epsilon) * (distance + epsilon);
+            double force_multiplier = G / pow(distance + epsilon, 3);
 
             double force_x = force_multiplier * dx;
             double force_y = force_multiplier * dy;
