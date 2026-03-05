@@ -262,7 +262,7 @@ void step() {
     double *accel_y = calloc(n, sizeof(double));
 
 #pragma omp parallel for reduction(+ : accel_x[ : n])                          \
-    reduction(+ : accel_y[ : n]) num_threads(nthreads)
+    reduction(+ : accel_y[ : n]) num_threads(nthreads) schedule(dynamic)
     for (int i = 0; i < n; i++) {
         double accel_i_x = 0;
         double accel_i_y = 0;
@@ -273,7 +273,7 @@ void step() {
 
             double distance = sqrt(dx * dx + dy * dy);
 
-            double force_multiplier = G / pow(distance + epsilon, 3);
+            double force_multiplier = G / (distance + epsilon) * (distance + epsilon) * (distance + epsilon);
 
             double force_x = force_multiplier * dx;
             double force_y = force_multiplier * dy;
@@ -304,6 +304,16 @@ void step() {
 
     free(accel_x);
     free(accel_y);
+}
+
+void free_particles() {
+    free(particles->x_pos);
+    free(particles->y_pos);
+    free(particles->mass);
+    free(particles->x_velocity);
+    free(particles->y_velocity);
+    free(particles->brightness);
+    free(particles);
 }
 
 int main(int argc, char **argv) {
@@ -340,5 +350,5 @@ int main(int argc, char **argv) {
 
     write_file();
 
-    free(particles);
+    free_particles();
 }
